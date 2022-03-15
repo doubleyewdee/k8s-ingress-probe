@@ -1,13 +1,17 @@
 using k8s;
 
 sealed class IngressPath {
-    public string Host { get; private set; } = string.Empty;
-    public string Path { get; private set; } = string.Empty;
-    public string Namespace { get; private set; } = string.Empty;
-    public string ServiceName { get; private set; } = string.Empty;
+    public string Name { get; init; } = string.Empty;
+    public string Host { get; init; } = string.Empty;
+    public string Path { get; init; } = string.Empty;
+    public string BaseUri { get => $"https://{this.Host}{this.Path}"; }
+    public string Namespace { get; init; } = string.Empty;
+    public Service Service { get; init; }
 
     public static IEnumerable<IngressPath> AllFromNamespace(Kubernetes client, string ns, string defaultHost)
     {
+        var knownServices = new Dictionary<string, Service>();
+
         foreach (var ingObj in client.ListNamespacedIngress(ns).Items)
         {
             foreach (var rule in ingObj.Spec.Rules)
@@ -23,11 +27,20 @@ sealed class IngressPath {
                     }
                     var svc = rulePath.Backend.Service.Name;
 
-                    yield return new IngressPath { Host = host, Path = path, ServiceName = svc, Namespace = ns };
+                    if (!knownServices.TryGetValue(svc, out var service)) {
+                        service = Service.FromCluster(client, svc, ns);
+                        if (service == null) {
+                            Console.Error.WriteLine($"Could not find candidate service {svc} for ingress {ingObj.Metadata.Name}");
+                            continue;
+                        }
+                        knownServices[svc] = service;
+                    }
+
+                    yield return new IngressPath { Name = ingObj.Metadata.Name, Host = host, Path = path, Service = service, Namespace = ns };
                 }
             }
         }
     }
 
-    public override string ToString() => $"https://{this.Host}{this.Path} -> {this.Namespace}/{this.ServiceName}";
+    public override string ToString() => $"{this.BaseUri} -> {this.Service}";
 }

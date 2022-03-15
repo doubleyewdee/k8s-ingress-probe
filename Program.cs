@@ -25,6 +25,7 @@ foreach (var nsObj in client.ListNamespace().Items)
     var ns = nsObj.Metadata.Name;
     foreach (var ingPath in IngressPath.AllFromNamespace(client, ns, defaultHost))
     {
-        Console.WriteLine(ingPath);
+        var testUri = ingPath.BaseUri + ingPath.Service.ProbePath;
+        Console.WriteLine($"Ingress {ingPath.Namespace}/{ingPath.Name} probe -> {testUri}");
     }
 }
