@@ -17,7 +17,7 @@ sealed class IngressPath {
             foreach (var rule in ingObj.Spec.Rules)
             {
                 var host = rule.Host ?? defaultHost;
-                if (host.StartsWith('*')) host = "blorp" + host[1..]; // wildcard into ... something
+                if (host.StartsWith('*')) continue; // wildcard hosts may or may not be backed by wildcard DNS, ignore them for now
                 foreach (var rulePath in rule.Http.Paths)
                 {
                     var path = rulePath.Path;
